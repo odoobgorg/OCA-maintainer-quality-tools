@@ -6,9 +6,9 @@ from __future__ import unicode_literals
 import os
 import sys
 from slumber import API, exceptions
-from odoo_connection import context_mapping
+from odoo_connection import context_mapping, Odoo10Context
 from test_server import setup_server, get_addons_path, \
-    get_server_path, get_addons_to_check, create_server_conf
+    get_server_path, get_addons_to_check, create_server_conf, get_server_script
 from travis_helpers import yellow, yellow_light, red
 from txclib import utils, commands
 
@@ -123,8 +123,9 @@ def main(argv=None):
 
     # Install the modules on the database
     database = "openerp_i18n"
-    setup_server(database, odoo_unittest, addons, server_path, addons_path,
-                 install_options, addons_list)
+    script_name = get_server_script(odoo_version)
+    setup_server(database, odoo_unittest, addons, server_path, script_name,
+                 addons_path, install_options, addons_list)
 
     # Initialize Transifex project
     print()
@@ -135,7 +136,8 @@ def main(argv=None):
     commands.cmd_init(init_args, path_to_tx=None)
     path_to_tx = utils.find_dot_tx()
 
-    connection_context = context_mapping[odoo_version]
+    # Use by default version 10 connection context
+    connection_context = context_mapping.get(odoo_version, Odoo10Context)
     with connection_context(server_path, addons_path, database) \
             as odoo_context:
         for module in addons_list:
