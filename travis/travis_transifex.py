@@ -5,6 +5,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import os
 import sys
+import time
+import subprocess
 from slumber import API, exceptions
 from odoo_connection import context_mapping, Odoo10Context
 from test_server import setup_server, get_addons_path, \
@@ -142,14 +144,26 @@ def main(argv=None):
             as odoo_context:
         for module in addons_list:
             print()
-            print(yellow("Downloading POT file for %s" % module))
-            source_filename = os.path.join(travis_build_dir, module, 'i18n',
-                                           module + ".pot")
+            print(yellow("Obtaining POT file for %s" % module))
+            i18n_folder = os.path.join(travis_build_dir, module, 'i18n')
+            source_filename = os.path.join(i18n_folder, module + ".pot")
             # Create i18n/ directory if doesn't exist
             if not os.path.exists(os.path.dirname(source_filename)):
                 os.makedirs(os.path.dirname(source_filename))
             with open(source_filename, 'w') as f:
                 f.write(odoo_context.get_pot_contents(module))
+            # Put the correct timestamp for letting known tx client which
+            # translations to update
+            for po_file_name in os.listdir(i18n_folder):
+                if not po_file_name.endswith('.po'):
+                    continue
+                po_file_name = os.path.join(i18n_folder, po_file_name)
+                command = ['git', 'log', '--pretty=format:%cd', '-n1',
+                           '--date=raw', po_file_name]
+                timestamp = float(subprocess.check_output(command).split()[0])
+                # This converts to UTC the timestamp
+                timestamp = time.mktime(time.gmtime(timestamp))
+                os.utime(po_file_name, (timestamp, timestamp))
 
             print()
             print(yellow("Linking POT file and Transifex resource"))
